@@ -113,9 +113,13 @@ vuln-scan-all: ## scan for sec issues with govulncheck (govulncheck binary neede
 			if [ -z $$module ]; then \
 				break; \
 			fi; \
-			pushd $$module > /dev/null && \
-			govulncheck ./...  && \
-			popd > /dev/null; \
+			pushd $$module > /dev/null || exit 1; \
+			govulncheck ./...; \
+			status=$$?; \
+			popd > /dev/null || exit 1; \
+			if [ $$status -ne 0 ]; then \
+				exit $$status; \
+			fi; \
 		done \
 	)
 
