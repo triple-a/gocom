@@ -139,12 +139,11 @@ func WithTracer(tracerFn TracerFn) Option {
 //
 // The default predicate always returns true (store every response).
 //
-// Example — skip storage for all client-error responses so that validation
-// failures do not permanently burn the key:
+// Example — only store successful and redirect responses; skip 4xx/5xx so
+// transient errors do not permanently burn the key:
 //
 //	func(statusCode int) bool {
-//		return statusCode < http.StatusBadRequest ||
-//			statusCode >= http.StatusInternalServerError
+//		return statusCode < http.StatusBadRequest
 //	}
 func WithShouldStoreResponse(fn ShouldStoreResponseFn) Option {
 	return func(cfg *config) {

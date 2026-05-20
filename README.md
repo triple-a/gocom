@@ -35,11 +35,7 @@ Allow internal repositories under a private company, simply add this line to you
 export GOPRIVATE="github.com/triple-a/*"
 ```
 
-For private modules, also set the checksum exclusion for the same namespace:
-
-```bash
-export GONOSUMDB="github.com/triple-a/*"
-```
+`GOPRIVATE` implies `GONOSUMDB` and `GONOSUMCHECK` for the same pattern, so no additional variables are needed.
 
 ## Using from auberun
 

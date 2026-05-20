@@ -158,12 +158,7 @@ func NewMiddleware(store Store, options ...Option) func(http.Handler) http.Handl
 
 			next.ServeHTTP(teeRespW, req)
 
-			shouldStoreResponseFn := conf.shouldStoreResponseFn
-			if shouldStoreResponseFn == nil {
-				shouldStoreResponseFn = defaultShouldStoreResponse
-			}
-
-			if !shouldStoreResponseFn(teeRespW.statusCode) {
+			if !conf.shouldStoreResponseFn(teeRespW.statusCode) {
 				return
 			}
 

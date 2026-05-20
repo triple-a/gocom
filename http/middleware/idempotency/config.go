@@ -41,7 +41,7 @@ type TracerFn func(req *http.Request, spanName string) func()
 
 // ShouldStoreResponseFn decides whether a completed response should be
 // persisted in the idempotency store. Return false to leave the key
-// reusable (e.g. skip storage for client-error responses).
+// reusable (e.g. skip storage for 4xx so the caller can retry under the same key).
 type ShouldStoreResponseFn func(statusCode int) bool
 
 // defaultShouldStoreResponse always stores — preserves the original behaviour.

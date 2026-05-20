@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Features
+
+- Add `WithShouldStoreResponse` option to control per-status-code response storage
+
 ## [http/middleware/idempotency/v0.10.0] - 2026-05-05
 
 ### Bug Fixes
