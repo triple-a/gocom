@@ -46,6 +46,6 @@ jobs:
           git config --global url."https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com".insteadOf "https://github.com"
           make vuln-scan-all
       - name: Secret scanning with TruffleHog
-        uses: trufflesecurity/trufflehog@8a44db8bcd6498e13e72e0838ffd42ffdab0f46c # v3.88.28
+        uses: trufflesecurity/trufflehog@e42153d44a5e5c37c1bd0c70e074781e9edcb760 # v3.88.28
         with:
           extra_args: --only-verified
