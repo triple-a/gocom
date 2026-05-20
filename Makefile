@@ -1,17 +1,15 @@
 .PHONY: all clean docs-gen \
 		changelogs-gen \
 		readme-version-table-update \
-		lint sec-scan upgrade release test-all coverage test leak \
-		bench bench-compare
+		lint sec-scan upgrade release release-tag push-tag test-all coverage test leak \
+		bench bench-compare test-echo debug-modules
 
 help: ## show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {sub("\\\\n",sprintf("\n%22c"," "), $$2);printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 all: docs-gen changelogs-gen readme-version-table-update
 
-# ALL_MODULES=$(shell go work edit -json | grep DiskPath | sed -E 's:^.*gocom/(.*)":\1:' | sed -E 's:/v[0-9]+$$::')
-
-ALL_MODULES=$(shell go work edit -print | grep "./" | cut -d ' ' -f 8 | sed 's|\./||')
+ALL_MODULES=$(shell go work edit -json | sed -n 's/.*"DiskPath": "\(.*\)".*/\1/p' | sed 's|^\./||')
 
 ALL_MODULES_SPACE_SEP=$(shell echo $(ALL_MODULES) | xargs printf "%s ")
 
@@ -111,14 +109,16 @@ trivy-scan: ## scan for sec issues with trivy (trivy binary needed)
 
 vuln-scan-all: ## scan for sec issues with govulncheck (govulncheck binary needed)
 	@( \
+		fail=0; \
 		for module in $(ALL_MODULES_SPACE_SEP); do \
 			if [ -z $$module ]; then \
 				break; \
 			fi; \
-			pushd $$module > /dev/null && \
-			govulncheck ./...  && \
-			popd > /dev/null; \
-		done \
+			pushd $$module > /dev/null || exit 1; \
+			govulncheck ./... || fail=1; \
+			popd > /dev/null || exit 1; \
+		done; \
+		exit $$fail \
 	)
 
 ###########
@@ -162,6 +162,32 @@ download-all: ## download all dependencies for the different modules
 
 release: release-specific readme-version-table-update ## release selection module, gen-changelog, gen docs, commit and tag and update the version table
 
+release-tag: ## create an annotated module tag. Usage: make release-tag MODULE=http/health VERSION=1.2.0
+	@[[ -n "$(MODULE)" ]] || (echo "MODULE is required, e.g. MODULE=http/health" && exit 1)
+	@[[ -n "$(VERSION)" ]] || (echo "VERSION is required, e.g. VERSION=1.2.0" && exit 1)
+	@[[ -d "./$(MODULE)" ]] || (echo "module path does not exist: ./$(MODULE)" && exit 1)
+	@[[ "$(VERSION)" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$$ ]] || (echo "invalid VERSION: $(VERSION), expected X.Y.Z" && exit 1)
+	@MAJOR=$$(echo "$(VERSION)" | cut -d. -f1); \
+	MOD_PATH=$$(grep '^module ' ./$(MODULE)/go.mod | awk '{print $$2}'); \
+	if [ "$$MAJOR" -ge 2 ] && ! echo "$$MOD_PATH" | grep -q "/v$$MAJOR$$"; then \
+		echo "ERROR: VERSION major=$$MAJOR but go.mod module path ($$MOD_PATH) lacks /v$$MAJOR suffix"; \
+		exit 1; \
+	fi
+	@TAG="$(MODULE)/v$(VERSION)"; \
+	if git rev-parse -q --verify "refs/tags/$$TAG" >/dev/null; then \
+		echo "tag already exists: $$TAG"; \
+		exit 1; \
+	fi; \
+	git tag -a "$$TAG" -m "release: $(MODULE) v$(VERSION)"; \
+	echo "created tag $$TAG"
+
+push-tag: ## push a module tag. Usage: make push-tag MODULE=http/health VERSION=1.2.0
+	@[[ -n "$(MODULE)" ]] || (echo "MODULE is required, e.g. MODULE=http/health" && exit 1)
+	@[[ -n "$(VERSION)" ]] || (echo "VERSION is required, e.g. VERSION=1.2.0" && exit 1)
+	@TAG="$(MODULE)/v$(VERSION)"; \
+	git rev-parse -q --verify "refs/tags/$$TAG" >/dev/null || (echo "local tag not found: $$TAG" && exit 1); \
+	git push origin "$$TAG"
+
 release-specific: ## release selection module, gen-changelog, gen docs, commit and tag
 	@select module in $(ALL_MODULES_SPACE_SEP); do \
 		[ -z "$$module" ] && break; \
@@ -177,7 +203,7 @@ release-specific: ## release selection module, gen-changelog, gen docs, commit a
 		{ git diff --quiet -- ./$$module/README.md || git commit -m "docs: update docs for module $$module" ./$$module/README.md; } && \
 		go work sync && \
 		{ git diff --quiet -- ./go.work ./go.work.sum || git commit -m "chore: update go.work" ./go.work ./go.work.sum; } && \
-		git tag $$TAG && \
+		git tag -a "$$TAG" -m "release: $$module $$TAG" && \
 		printf "\nrelease tagged $$TAG\nif everything looks good, run: git push origin $$TAG\n"; \
 		break; \
 	done
@@ -231,4 +257,4 @@ bench-compare: ## compare benchs results for selection module
 ###########
 
 gci-format: ## format repo through gci linter
-	gci write ./ --skip-generated -s standard -s default -s "Prefix(github.com/induzo)"
+	gci write ./ --skip-generated -s standard -s default -s "Prefix(github.com/triple-a)"

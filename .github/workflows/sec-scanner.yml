@@ -25,7 +25,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # we use 0 here as we need it for gitguardian to inspect everything
+          fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v6
         with:
@@ -41,15 +41,11 @@ jobs:
       - name: Run security scan with govuln
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GOPRIVATE: github.com/induzo/*
+          GOPRIVATE: github.com/triple-a/*
         run: |
           git config --global url."https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com".insteadOf "https://github.com"
           make vuln-scan-all
-      - name: GitGuardian scan
-        uses: GitGuardian/ggshield-action@33598664f24734b2c3f8eeac2f1bf3db0426a474 # v1.50.0
-        env:
-          GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
-          GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
-          GITHUB_PULL_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+      - name: Secret scanning with TruffleHog
+        uses: trufflesecurity/trufflehog@e42153d44a5e5c37c1bd0c70e074781e9edcb760 # v3.88.28
+        with:
+          extra_args: --only-verified

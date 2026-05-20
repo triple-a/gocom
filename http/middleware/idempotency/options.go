@@ -131,3 +131,28 @@ func WithTracer(tracerFn TracerFn) Option {
 		cfg.tracerFn = tracerFn
 	}
 }
+
+// WithShouldStoreResponse sets a predicate that controls whether a completed
+// response is persisted in the idempotency store. When the predicate returns
+// false the key is NOT burned, allowing the caller to retry with a corrected
+// request under the same idempotency key.
+//
+// The default predicate always returns true (store every response).
+//
+// Example — only store successful and redirect responses; skip 4xx/5xx so
+// transient errors do not permanently burn the key:
+//
+//	func(statusCode int) bool {
+//		return statusCode < http.StatusBadRequest
+//	}
+func WithShouldStoreResponse(fn ShouldStoreResponseFn) Option {
+	return func(cfg *config) {
+		if fn == nil {
+			cfg.shouldStoreResponseFn = defaultShouldStoreResponse
+
+			return
+		}
+
+		cfg.shouldStoreResponseFn = fn
+	}
+}
