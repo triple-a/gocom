@@ -175,3 +175,18 @@ func TestWithShouldStoreResponse(t *testing.T) {
 		t.Errorf("predicate should return false for %d", http.StatusBadRequest)
 	}
 }
+
+func TestWithShouldStoreResponseNilKeepsDefault(t *testing.T) {
+	t.Parallel()
+
+	cfg := newDefaultConfig()
+	WithShouldStoreResponse(nil)(cfg)
+
+	if cfg.shouldStoreResponseFn == nil {
+		t.Fatal("shouldStoreResponseFn must not be nil")
+	}
+
+	if !cfg.shouldStoreResponseFn(http.StatusBadRequest) {
+		t.Fatalf("nil option must preserve default storage behavior")
+	}
+}

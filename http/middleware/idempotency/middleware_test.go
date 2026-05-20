@@ -1137,3 +1137,26 @@ func TestMiddleware_WithShouldStoreResponse(t *testing.T) {
 		t.Fatalf("handler call count: want 2, got %d", handlerCalls)
 	}
 }
+
+func TestMiddleware_WithShouldStoreResponseNilDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	store := NewInMemStore()
+	t.Cleanup(store.Close)
+
+	handler := NewMiddleware(store, WithShouldStoreResponse(nil))(http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) {
+			fmt.Fprint(w, "ok")
+		},
+	))
+
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("body"))
+	req.Header.Set(DefaultIdempotencyKeyHeader, "nil-safe-key")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}

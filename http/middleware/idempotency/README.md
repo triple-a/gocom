@@ -42,6 +42,7 @@ Package idempotency provides an HTTP middleware for managing idempotency. Idempo
   - [func WithIdempotentReplayedHeader\(header string\) Option](<#WithIdempotentReplayedHeader>)
   - [func WithIgnoredURLPaths\(urlPaths ...string\) Option](<#WithIgnoredURLPaths>)
   - [func WithOptionalIdempotencyKey\(\) Option](<#WithOptionalIdempotencyKey>)
+  - [func WithShouldStoreResponse\(fn ShouldStoreResponseFn\) Option](<#WithShouldStoreResponse>)
   - [func WithTracer\(tracerFn TracerFn\) Option](<#WithTracer>)
   - [func WithUserIDExtractor\(fn UserIDExtractorFn\) Option](<#WithUserIDExtractor>)
 - [type ProblemDetail](<#ProblemDetail>)
@@ -489,6 +490,15 @@ func WithOptionalIdempotencyKey() Option
 ```
 
 WithOptionalIdempotencyKey sets the idempotency key to optional.
+
+<a name="WithShouldStoreResponse"></a>
+### func [WithShouldStoreResponse](<https://github.com/triple-a/gocom/blob/main/http/middleware/idempotency/options.go#L149>)
+
+```go
+func WithShouldStoreResponse(fn ShouldStoreResponseFn) Option
+```
+
+WithShouldStoreResponse sets a predicate that controls whether a completed response is persisted in the idempotency store. When the predicate returns false the key is not burned, allowing the caller to retry with a corrected request under the same idempotency key.
 
 <a name="WithTracer"></a>
 ### func [WithTracer](<https://github.com/triple-a/gocom/blob/main/http/middleware/idempotency/options.go#L103>)

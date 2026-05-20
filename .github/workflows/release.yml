@@ -64,10 +64,12 @@ jobs:
           echo "module=$MODULE" >> "$GITHUB_OUTPUT"
 
       - name: Run module tests
+        working-directory: ${{ steps.resolve.outputs.module }}
         env:
           GOPRIVATE: github.com/triple-a/*
+          GOWORK: off
         run: |
-          go test -race -failfast "./${{ steps.resolve.outputs.module }}/..."
+	      go test -race -failfast ./...
 
   publish-release:
     runs-on: ubuntu-latest

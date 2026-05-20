@@ -4,6 +4,11 @@
 
 common golang packages
 
+## Import path migration
+
+The active module namespace is now `github.com/triple-a/gocom/...`.
+Existing consumers using the historical `github.com/induzo/gocom/...` import paths must update their imports before adopting new releases from this repository.
+
 ## Current modules
 
 | module                                                             | benchmarks                                                         | latest version | report                                                                                                                                                                                               | docs                                                                                                                                                                                |

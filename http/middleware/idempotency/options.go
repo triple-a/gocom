@@ -148,6 +148,12 @@ func WithTracer(tracerFn TracerFn) Option {
 //	}
 func WithShouldStoreResponse(fn ShouldStoreResponseFn) Option {
 	return func(cfg *config) {
+		if fn == nil {
+			cfg.shouldStoreResponseFn = defaultShouldStoreResponse
+
+			return
+		}
+
 		cfg.shouldStoreResponseFn = fn
 	}
 }
