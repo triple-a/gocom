@@ -1,6 +1,6 @@
 module github.com/triple-a/gocom/http/middleware/valkeydempotency
 
-go 1.25.6
+go 1.26.0
 
 require (
 	github.com/ory/dockertest/v3 v3.12.0
@@ -46,9 +46,8 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/net v0.52.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 )
 
 // Workaround for dockertest's transitive dependency on docker/cli.
