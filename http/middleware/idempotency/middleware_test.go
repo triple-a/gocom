@@ -1107,7 +1107,9 @@ func TestMiddleware_RecheckUnderLock(t *testing.T) {
 				t.Errorf("duplicate status = %d, want %d", dup.Code, tt.wantStatus)
 			}
 
-			if got := dup.Header().Get(DefaultIdempotentReplayedResponseHeader) == "true"; got != tt.wantReplayed {
+			if got := dup.Header().
+				Get(DefaultIdempotentReplayedResponseHeader) ==
+				"true"; got != tt.wantReplayed {
 				t.Errorf("duplicate replayed = %v, want %v", got, tt.wantReplayed)
 			}
 
@@ -1117,7 +1119,13 @@ func TestMiddleware_RecheckUnderLock(t *testing.T) {
 
 			// The duplicate gave the lock back.
 			_, unlock, err := inmem.TryLock(t.Context(), buildStoreKey(
-				httptest.NewRequest(http.MethodPost, "/quotes", nil), "race-key", defaultUserIDExtractor,
+				httptest.NewRequest(
+					http.MethodPost,
+					"/quotes",
+					nil,
+				),
+				"race-key",
+				defaultUserIDExtractor,
 			))
 			if err != nil {
 				t.Fatalf("lock not released: %v", err)
@@ -1191,7 +1199,8 @@ func TestMiddleware_WithShouldStoreResponse(t *testing.T) {
 
 	mw := NewMiddleware(store,
 		WithShouldStoreResponse(func(statusCode int) bool {
-			return statusCode < http.StatusBadRequest || statusCode >= http.StatusInternalServerError
+			return statusCode < http.StatusBadRequest ||
+				statusCode >= http.StatusInternalServerError
 		}),
 	)
 
@@ -1274,11 +1283,142 @@ func TestMiddleware_WithShouldStoreResponseNilDoesNotPanic(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("body"))
 	req.Header.Set(DefaultIdempotencyKeyHeader, "nil-safe-key")
+
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+// lockLossStore misses on the pre-lock check, hands out a lock whose
+// context the test cancels, and blocks the recheck under the lock until
+// the test lets it go.
+type lockLossStore struct {
+	*InMemStore
+
+	honorCtx bool
+	getCalls atomic.Int32
+	blocked  chan struct{}
+	proceed  chan struct{}
+	loseLock context.CancelFunc
+	released atomic.Bool
+}
+
+func (s *lockLossStore) TryLock(
+	ctx context.Context,
+	_ string,
+) (context.Context, context.CancelFunc, error) {
+	lockCtx, cancel := context.WithCancel(ctx)
+	s.loseLock = cancel
+
+	return lockCtx, func() {
+		s.released.Store(true)
+		cancel()
+	}, nil
+}
+
+func (s *lockLossStore) GetStoredResponse(
+	ctx context.Context,
+	_ string,
+) (*StoredResponse, bool, error) {
+	if s.getCalls.Add(1) == 1 {
+		return nil, false, nil
+	}
+
+	close(s.blocked)
+
+	if s.honorCtx {
+		<-ctx.Done()
+
+		return nil, false, ctx.Err()
+	}
+
+	<-s.proceed
+
+	return nil, false, nil
+}
+
+// TestMiddleware_RecheckUnderLock_LockLost covers a lock lost while the
+// recheck under it is pending: the handler must not run without the lock.
+func TestMiddleware_RecheckUnderLock_LockLost(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		honorCtx   bool
+		wantStatus int
+	}{
+		{
+			name:       "store stops when the lock context ends",
+			honorCtx:   true,
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "store answers after the lock was lost",
+			honorCtx:   false,
+			wantStatus: http.StatusConflict,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			inmem := NewInMemStore()
+			defer inmem.Close()
+
+			store := &lockLossStore{
+				InMemStore: inmem,
+				honorCtx:   tt.honorCtx,
+				blocked:    make(chan struct{}),
+				proceed:    make(chan struct{}),
+			}
+
+			var handlerRuns atomic.Int32
+
+			handler := NewMiddleware(store, WithErrorToHTTPFn(errorToString))(
+				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					handlerRuns.Add(1)
+					w.WriteHeader(http.StatusCreated)
+				}),
+			)
+
+			req := httptest.NewRequest(http.MethodPost, "/quotes", strings.NewReader(`{"a":1}`))
+			req.Header.Set(DefaultIdempotencyKeyHeader, "lost-key")
+
+			rec := httptest.NewRecorder()
+			done := make(chan struct{})
+
+			go func() {
+				defer close(done)
+
+				handler.ServeHTTP(rec, req)
+			}()
+
+			<-store.blocked
+			store.loseLock()
+			close(store.proceed)
+
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("request did not finish: recheck is not bound to the lock context")
+			}
+
+			if rec.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+
+			if got := handlerRuns.Load(); got != 0 {
+				t.Errorf("handler runs = %d, want 0", got)
+			}
+
+			if !store.released.Load() {
+				t.Error("lock was not released")
+			}
+		})
 	}
 }

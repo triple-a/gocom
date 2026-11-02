@@ -154,6 +154,8 @@ func NewMiddleware(store Store, options ...Option) func(http.Handler) http.Handl
 				endUnlock()
 			}()
 
+			// Recheck under the lock, bound to its lifetime: lockCtx ends when
+			// the lock is lost, so a slow lookup stops with it.
 			endRecheck := conf.tracerFn(req, "idempotency.recheck_response")
 			isFound = handleRequestWithIdempotency(
 				conf,
@@ -161,13 +163,30 @@ func NewMiddleware(store Store, options ...Option) func(http.Handler) http.Handl
 				storeKey,
 				requestHash,
 				respW,
-				req,
+				req.WithContext(lockCtx),
 				key,
 			)
 
 			endRecheck()
 
 			if isFound {
+				return
+			}
+
+			// The store may have answered after the lock was lost; another
+			// request can hold it now, so do not run the handler unprotected.
+			if lockCtx.Err() != nil {
+				conf.errorToHTTPFn(respW, req,
+					RequestInFlightError{
+						RequestContext{
+							URL:       req.URL.String(),
+							Method:    req.Method,
+							KeyHeader: conf.idempotencyKeyHeader,
+							Key:       key,
+						},
+					},
+				)
+
 				return
 			}
 
