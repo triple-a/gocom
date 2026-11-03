@@ -15,4 +15,4 @@ use (
 // tags are published on github.com/triple-a/gocom.
 replace github.com/triple-a/gocom/database/pgx-slog v1.0.38 => ./database/pgx-slog
 
-replace github.com/triple-a/gocom/http/middleware/idempotency v0.10.0 => ./http/middleware/idempotency
+replace github.com/triple-a/gocom/http/middleware/idempotency v0.11.1 => ./http/middleware/idempotency
