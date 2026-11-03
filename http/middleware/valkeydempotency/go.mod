@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/ory/dockertest/v3 v3.12.0
-	github.com/triple-a/gocom/http/middleware/idempotency v0.10.0
+	github.com/triple-a/gocom/http/middleware/idempotency v0.11.1
 	github.com/valkey-io/valkey-go v1.0.74
 	go.uber.org/goleak v1.3.0
 )
